@@ -74,7 +74,6 @@ class Environment:
         observation, reward, terminated, truncated, info = self.env.step(action)
         #print('>>> ', self.noise)
         if self.noise is not None:
-            print(self.noise)
             noisy_state = self.noise(self.env.state)
             noisy_observation = self.converter(noisy_state)
             self.render(noisy_state)
