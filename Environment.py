@@ -6,7 +6,7 @@ from gymnasium.error import DependencyNotInstalled
 
 class Environment:
 
-    def __init__(self, env, rendering=None, noise=None, converter=None, **kwargs):
+    def __init__(self, env, rendering=None, noise=None, converter=None, screen_dim=None, **kwargs):
         """
         A custom environment that allows for easy change in the
         physical properties in the environment and addition of 
@@ -16,6 +16,7 @@ class Environment:
         self.original_params = self.env.unwrapped.__dict__
         self.noise = noise
         self.converter = converter
+        self.screen_dim = screen_dim
 
         if rendering == 'dual' or rendering == 'single' or rendering == 'overlay':
             try:
@@ -32,25 +33,25 @@ class Environment:
 
         if rendering == 'dual':
             self.rendering = 'dual'
-            self.screen = pygame.display.set_mode((self.env.unwrapped.screen_dim * 2, self.env.unwrapped.screen_dim))
-            self.screen_left = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen = pygame.display.set_mode((self.screen_dim[0] * 2, self.screen_dim[1]))
+            self.screen_left = pygame.Surface((self.screen_dim[0], self.screen_dim[1]))
             self.clock_left = pygame.time.Clock()
-            self.screen_right = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen_right = pygame.Surface((self.screen_dim[0], self.screen_dim[1]))
             self.clock_right = pygame.time.Clock()
             pygame.display.set_caption('Dual display mode')
         elif rendering == 'overlay':
             self.rendering = 'overlay'
-            self.screen = pygame.display.set_mode((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
-            self.screen_left = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen = pygame.display.set_mode((self.screen_dim[0], self.screen_dim[1]))
+            self.screen_left = pygame.Surface((self.screen_dim[0], self.screen_dim[1]))
             self.clock_left = pygame.time.Clock()
-            self.screen_right = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen_right = pygame.Surface((self.screen_dim[0], self.screen_dim[1]))
             self.screen_left.set_alpha(128)
             self.screen_right.set_alpha(32)
             self.clock_right = pygame.time.Clock()
             pygame.display.set_caption('Overlay display mode')
         elif rendering == 'single':
             self.rendering = 'single'
-            self.screen = pygame.display.set_mode((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen = pygame.display.set_mode((self.screen_dim[0], self.screen_dim[1]))
             self.env.unwrapped.screen = self.screen
             pygame.display.set_caption('Single display mode')
 
@@ -65,8 +66,8 @@ class Environment:
 
     def step(self, action):
         self.step_ += 1
-        print('STEP: ', self.step_, self.env.unwrapped.__dict__['g'], self.env._elapsed_steps, self.env._max_episode_steps)
-
+        #print('STEP: ', self.step_, self.env.unwrapped.__dict__['g'], self.env._elapsed_steps, self.env._max_episode_steps)
+        print('STEP: ', self.step_)
         if self.step_ in self.changes.keys():
             self.env.unwrapped.__dict__.update(self.changes[self.step_])
 
@@ -89,13 +90,13 @@ class Environment:
                 old_state = self.env.unwrapped.state
                 self.env.unwrapped.state = noisy_state
                 if self.rendering == 'dual':
-                    self.render_one_screen(self.screen_right, self.clock_right, self.env.unwrapped.screen_dim, 0)
+                    self.render_one_screen(self.screen_right, self.clock_right, self.screen_dim[0], 0)
                 else:
                     self.render_one_screen(self.screen_right, self.clock_right, 0, 0)
                 self.env.unwrapped.state = old_state
             else:
                 if self.rendering == 'dual':
-                    self.render_one_screen(self.screen_right, self.clock_right, self.env.unwrapped.screen_dim, 0)
+                    self.render_one_screen(self.screen_right, self.clock_right, self.screen_dim[0], 0)
                 else:
                    self.render_one_screen(self.screen_right, self.clock_right, 0, 0) 
             
