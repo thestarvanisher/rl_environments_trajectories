@@ -6,17 +6,20 @@ from gymnasium.error import DependencyNotInstalled
 
 class Environment:
 
-    def __init__(self, env, rendering=None, noise=None, **kwargs):
+    def __init__(self, env, rendering=None, noise=None, converter=None, **kwargs):
         """
         A custom environment that allows for easy change in the
         physical properties in the environment and addition of 
         noise to the observations
         """
+        print(noise)
         self.env = gym.make(env, **kwargs)
         self.original_params = self.env.unwrapped.__dict__
         self.noise = noise
+        print('II ', self.noise)
+        self.converter = converter
 
-        if rendering == 'dual' or rendering == 'single':
+        if rendering == 'dual' or rendering == 'single' or rendering == 'overlay':
             try:
                 import pygame
                 from pygame import gfxdraw
@@ -35,8 +38,19 @@ class Environment:
             self.screen_left = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
             self.clock_left = pygame.time.Clock()
             self.screen_right = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen_right.set_alpha(128)
             self.clock_right = pygame.time.Clock()
             pygame.display.set_caption('Dual display mode')
+        elif rendering == 'overlay':
+            self.rendering = 'overlay'
+            self.screen = pygame.display.set_mode((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen_left = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.clock_left = pygame.time.Clock()
+            self.screen_right = pygame.Surface((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
+            self.screen_left.set_alpha(128)
+            self.screen_right.set_alpha(32)
+            self.clock_right = pygame.time.Clock()
+            pygame.display.set_caption('Overlay display mode')
         elif rendering == 'single':
             self.rendering = 'single'
             self.screen = pygame.display.set_mode((self.env.unwrapped.screen_dim, self.env.unwrapped.screen_dim))
@@ -61,27 +75,47 @@ class Environment:
 
         
         observation, reward, terminated, truncated, info = self.env.step(action)
-        self.render()
+        #print('>>> ', self.noise)
+        if self.noise is not None:
+            print(self.noise)
+            noisy_state = self.noise(self.env.state)
+            noisy_observation = self.converter(noisy_state)
+            self.render(noisy_state)
+        else:
+            self.render()
         return observation, reward, terminated, truncated, info
 
-    def render(self):
-        if self.rendering == 'dual':
-            self.env.unwrapped.screen = self.screen_left
-            self.env.unwrapped.clock = self.clock_left
-            self._render()
-            self.screen.blit(self.screen_left, (0, 0))
+    def render(self, noisy_state=None):
+        if self.rendering == 'dual' or self.rendering == 'overlay':
+            self.render_one_screen(self.screen_left, self.clock_left, 0, 0)
 
-            self.env.unwrapped.screen = self.screen_right
-            self.env.unwrapped.clock = self.clock_right
-            self._render()
-            self.screen.blit(self.screen_left, (self.env.unwrapped.screen_dim, 0))
-
+            if noisy_state is not None:
+                old_state = self.env.unwrapped.state
+                self.env.unwrapped.state = noisy_state
+                print('>>> >>> ', old_state, self.env.unwrapped.state)
+                if self.rendering == 'dual':
+                    self.render_one_screen(self.screen_right, self.clock_right, self.env.unwrapped.screen_dim, 0)
+                else:
+                    self.render_one_screen(self.screen_right, self.clock_right, 0, 0)
+                self.env.unwrapped.state = old_state
+                print('>> ', self.env.unwrapped.state)
+            else:
+                if self.rendering == 'dual':
+                    self.render_one_screen(self.screen_right, self.clock_right, self.env.unwrapped.screen_dim, 0)
+                else:
+                   self.render_one_screen(self.screen_right, self.clock_right, 0, 0) 
+            
             self._pygame_flip()
         
         elif self.rendering == 'single':
             self._render()
             self._pygame_flip()
 
+    def render_one_screen(self, screen, clock, x, y):
+        self.env.unwrapped.screen = screen
+        self.env.unwrapped.clock = clock
+        self._render()
+        self.screen.blit(screen, (x, y))
 
     def reset(self, **kwargs):
         self.step_ = 0
